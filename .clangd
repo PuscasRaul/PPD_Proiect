@@ -1,0 +1,15 @@
+CompileFlags:
+  Add: [
+    "-xc",                # Force language to C
+    "-std=c11",           # Use C23 standard
+    "-Wall",
+    "-Wextra",
+    "-Werror=implicit-function-declaration" # Catch missing headers immediately
+  ]
+  Remove: ["-std=*", "-xobjective-c*"]
+
+Index:
+  Background: Build
+
+Diagnostics:
+  UnusedIncludes: Strict
