@@ -67,4 +67,8 @@ http_message *http_parse(
     http_message *msg
     );
 
+int http_extract_status_line(const char *data, http_message *msg);
+int http_extract_headers(const char *data, http_message *msg);
+int http_extract_body(const char *data, http_message *msg);
+
 #endif // HTTP_MESSAGE_H

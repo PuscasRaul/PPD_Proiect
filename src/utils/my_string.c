@@ -7,7 +7,6 @@ string_t *init_string(string_t *str, size_t capacity) {
 
   str->capacity = capacity;
   str->buffer = malloc(capacity);
-  str->holds_data = 1;
   if (str->buffer == NULL)
     return NULL;
   str->len = 0;
@@ -15,7 +14,7 @@ string_t *init_string(string_t *str, size_t capacity) {
   return str;
 }
 
-string_t *init_with_msg(string_t *str, char *msg) {
+string_t *init_with_msg(string_t *str, const char * restrict msg) {
   if (str == NULL)
     return NULL;
 
@@ -27,7 +26,6 @@ string_t *init_with_msg(string_t *str, char *msg) {
   str->capacity = strlen(msg) + 1;
   str->len = strlen(msg);
   str->buffer = malloc(str->capacity);
-  str->holds_data = 1;
   memcpy(str->buffer, msg, str->len);
   str->buffer[str->len] = '\0';
 
@@ -53,21 +51,26 @@ string_t *string_resize(string_t *str, size_t new_capacity) {
 
 string_t *string_cpy(
     string_t *restrict dest,
-    string_t *restrict src
+    const char *restrict src
     ) {
   if (dest == NULL || src == NULL)
     return NULL;
+  
+  size_t str_len = strlen(src);
 
   /* do a long ass copy */
-  if (dest->capacity < src->len) {
+  if (dest->capacity < str_len) {
     deinit_string(dest);
-    return init_with_msg(dest, src->buffer);
+    return init_with_msg(dest, src);
   }
 
-  memcpy(dest->buffer, src->buffer, src->len);
-  dest->buffer[src->len] = '\0';
-  dest->len = src->len;
-  dest->holds_data = 1;
+  memcpy(dest->buffer, src, str_len);
+  dest->buffer[str_len] = '\0';
+  dest->len = str_len;
   return dest;
 }
 
+void string_clear(string_t *str) {
+  str->buffer -= (str->len - 1); /* WARN: might cause a SEG fault */
+  str->len = 0;
+}
