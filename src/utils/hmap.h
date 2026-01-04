@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define container_of(ptr, T, member) \
+    ((T *)( (char *)ptr - offsetof(T, member) ))
+
 typedef struct hnode hnode;
 typedef struct htab htab;
 typedef struct hmap hmap;

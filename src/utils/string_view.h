@@ -56,5 +56,4 @@ static inline void free_str_view(string_view *str_v) {
   }
 }
 
-
 #endif
