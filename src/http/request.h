@@ -55,5 +55,4 @@ int http_extract_body(
     const size_t len,
     http_request *req
     );
-
 #endif // HTTP_REQUEST_H

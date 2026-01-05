@@ -155,6 +155,7 @@ int http_extract_headers(
         req->raw_data.buffer + status_line_len,
         header_delimiter - name_delimiter 
         );
+
     ++req->headers_amt;
     i = header_delimiter + 2; /* move i past CRLF */ 
   }
@@ -166,4 +167,22 @@ int http_extract_body(
     const char *data,
     const size_t len,
     http_request *req
-    );
+    ) {
+
+  if (data == NULL || req == NULL)
+    return NULL;
+
+  char *body = memmem(data, len, "\r\n", 2);
+  int offset = 0;
+  if (body == NULL)
+    return -1; /* No existing CRLF to top off body */
+
+  offset = body - data;
+  int header_len = req->raw_data.len;
+  if (string_ncat(&req->raw_data, data, len) != 0)
+    return -1; /* Can not append body to data */
+
+  init_str_view(&req->body, req->raw_data.buffer + header_len, offset);
+  return 0;
+}
+

@@ -103,13 +103,7 @@ int string_cmp(string_t *lstr, string_t *rstr) {
   if (lstr == NULL && rstr == NULL)
     return 0;
 
-  if (lstr->len > rstr->len)
-    return 1;
-
-  if (lstr->len < rstr->len)
-    return -1;
-
-  for (register size_t i = 0; i < lstr->len; i++) {
+  for (register size_t i = 0; i < lstr->len && i < rstr->len; i++) {
     if (lstr->buffer[i] == rstr->buffer[i])
       continue;
 
@@ -119,7 +113,12 @@ int string_cmp(string_t *lstr, string_t *rstr) {
       return -1;
   }
 
-  return 0;
+  if (lstr->len > rstr->len)
+    return 1;
+  else if (lstr->len < rstr->len)
+    return -1;
+  else 
+    return 0;
 }
 
 int string_cat(string_t *dst, const char *data) {

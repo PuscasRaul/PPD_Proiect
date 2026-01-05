@@ -132,5 +132,14 @@ int string_cmp(string_t *lstr, string_t *rstr);
  *         any non-zero value otherwise
  */
 int string_cat(string_t *dst, const char *data);
+
+/*
+ * Concatenates data to end of dst.
+ * param: dst: string destination
+ * param: data: data to be concatenated
+ * param: len: length of data to be concatenated
+ * return: 0 on success
+ *         any non-zero value otherwise
+ */
 int string_ncat(string_t *dst, const char *data, size_t len);
 #endif
