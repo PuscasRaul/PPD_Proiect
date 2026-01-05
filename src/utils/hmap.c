@@ -26,8 +26,10 @@ htab *h_init(htab *htab, size_t n) {
 
 void deinit_htab(htab *htab) {
   if (htab) {
-    if (htab->tab)
+    if (htab->tab) {
+      /* iterate over all the lists */
       free(htab->tab);
+    }
 
     htab->tab = NULL;
     htab->mask = 1;

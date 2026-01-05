@@ -18,7 +18,6 @@ struct string_t {
  * return: NULL on failure
  *         address of str on success
  * NOTE: deinitialize through via call to deinit_string
- * 
  */
 string_t *init_string(string_t *str, size_t capacity);
 
@@ -133,4 +132,5 @@ int string_cmp(string_t *lstr, string_t *rstr);
  *         any non-zero value otherwise
  */
 int string_cat(string_t *dst, const char *data);
+int string_ncat(string_t *dst, const char *data, size_t len);
 #endif

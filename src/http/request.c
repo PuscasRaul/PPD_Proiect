@@ -28,13 +28,6 @@ static enum http_methods string_to_enum(const char *str) {
     return UNRECOGNIZED;
 }
 
-static int header_eq(hnode *lhs, hnode *rhs) {
-  http_header *first = container_of(lhs, http_header, node);
-  http_header *second = container_of(rhs, http_header, node);
-
-  return string_cmp(&first->name, &second->name); 
-}
-
 http_request *init_http_request(http_request *req) {
   if (req == NULL)
     return NULL;
@@ -42,11 +35,6 @@ http_request *init_http_request(http_request *req) {
   if (init_string(&req->raw_data, INIT_HTTP_REQ_SIZE) == NULL)
     return NULL;
 
-  if (init_htab(&req->header_tab, MAX_HTTP_HEADERS) == NULL) {
-    deinit_string(&req->raw_data);
-    return NULL;
-  }
-  
   return req;
 }
 
@@ -57,7 +45,6 @@ void deinit_http_request(http_request *req) {
     deinit_str_view(&req->status_line);
     deinit_str_view(&req->uri);
     deinit_str_view(&req->body);
-    deinit_htab(&req->header_tab);
   }
 }
 
@@ -117,7 +104,63 @@ int http_extract_headers(
     const char *data,
     const size_t len,
     http_request *req
-    );
+    ) {
+
+  if (req == NULL || data == NULL)
+    return NULL;
+
+  char *header_line = NULL;
+  int offset = 0, i = 0;
+  int header_delimiter = 0, name_delimiter = 0;
+  size_t status_line_len = req->status_line.len;
+  header_line = memmem(data, len, "\r\n\r\n", 4);
+  if (header_line == NULL)
+    return -1; /* Not enough data yet probably */
+
+  /*
+   * Header format is :
+   * HEADER_NAME:  (SP)*  HEADER_VALUE CRLF
+   *
+   * One approach is, extract via CRLF all of the different header_line
+   * For each header line
+   * iterate up to ":", and then take separately the name and value
+   */
+
+  if (string_ncat(&req->raw_data, data, offset) != 0)
+    return -1; /* Could not append headers to existing status-line */
+
+  while (i < offset) {
+    /* advance untill we find a CRLF */
+    header_delimiter = i;
+    while (
+        data[header_delimiter] != '\r' 
+        && data[header_delimiter + 1] != '\n'
+        && header_delimiter <= offset)
+      ++header_delimiter;
+
+    name_delimiter = i;
+    while (data[name_delimiter] != ':')
+      ++name_delimiter;
+
+    /* the upper bound of the value is the header delimiter itself */
+    init_str_view(
+        &req->header_tab[req->headers_amt].name,
+        req->raw_data.buffer + status_line_len, 
+        name_delimiter
+        );
+
+    ++name_delimiter;
+    init_str_view(
+        &req->header_tab[req->headers_amt].value,
+        req->raw_data.buffer + status_line_len,
+        header_delimiter - name_delimiter 
+        );
+    ++req->headers_amt;
+    i = header_delimiter + 2; /* move i past CRLF */ 
+  }
+
+  return 0;
+}
 
 int http_extract_body(
     const char *data,

@@ -3,11 +3,10 @@
 
 #include "../utils/my_string.h"
 #include "../utils/string_view.h"
-#include "../utils/hmap.h"
 #include "core.h"
 
 #ifndef MAX_HTTP_HEADERS
-#define MAX_HTTP_HEADERS 30
+#define MAX_HTTP_HEADERS 32
 #endif
 
 /* might be unnecessary */
@@ -19,9 +18,8 @@ typedef struct http_header http_header;
 typedef struct http_request http_request;
 
 struct http_header {
-  hnode node;
-  string_t name;
-  string_t value;
+  string_view name;
+  string_view value;
 };
 
 struct http_request {
@@ -33,8 +31,8 @@ struct http_request {
 
   http_methods method; /* Method */
 
-  /* Move headers to a linked-list/ hmap like structure */
-  htab header_tab; /* Headers contained by request */
+  http_header header_tab[MAX_HTTP_HEADERS]; /* Headers contained by request */
+  size_t headers_amt; /* Amount of headers that the request contains */
 };
 
 http_request *init_http_request(http_request *req);

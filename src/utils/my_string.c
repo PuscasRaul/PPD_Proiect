@@ -63,7 +63,8 @@ string_t *string_cpy(
   size_t str_len = strlen(src);
 
   if (dest->capacity < str_len) 
-    string_resize(dest, str_len + 1);
+    if (string_resize(dest, str_len + 1) == NULL)
+      return NULL;
 
   memcpy(dest->buffer, src, str_len);
   dest->len = str_len;
@@ -80,7 +81,8 @@ string_t *string_ncpy(
 
 
   if (dest->capacity < n) 
-    string_resize(dest, n + 1);
+    if (string_resize(dest, n + 1) == NULL)
+      return NULL;
 
   memcpy(dest->buffer, src, n);
   dest->len = n;
@@ -124,10 +126,25 @@ int string_cat(string_t *dst, const char *data) {
   if (dst == NULL || data == NULL)
     return -1;
 
-  if (dst->capacity < dst->len + strlen(data))
-    if (string_resize(dst, dst->len + strlen(data) + 1) == NULL)
-      return NULL;
+  size_t str_len = strlen(data);
+  if (dst->capacity < dst->len + str_len)
+    if (string_resize(dst, dst->len + str_len + 1) == NULL)
+      return -1;
 
-  memcpy((dst->buffer + dst->len), data, strlen(data));
+  memcpy((dst->buffer + dst->len), data, str_len);
+  dst->len += strlen(data);
+  return 0;
+}
+
+int string_ncat(string_t *dst, const char *data, size_t len) {
+  if (dst == NULL || data == NULL)
+    return -1;
+
+  if (dst->capacity < dst->len + len)
+    if (string_resize(dst, dst->len + len + 1) == NULL)
+      return -1;
+
+  memcpy((dst->buffer + dst->len), data, len);
+  dst->len += len;
   return 0;
 }
