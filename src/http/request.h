@@ -28,6 +28,7 @@ struct http_request {
   string_view uri; /* Destination uri, view over raw_data */
   string_view status_line; /* Status_line of request, view over raw_data */
   string_view body; /* Body of request, view over raw_data */
+  string_view http_version;
 
   http_methods method; /* Method */
 

@@ -5,7 +5,7 @@ typedef enum http_codes http_codes;
 typedef enum http_methods http_methods;
 
 #ifndef HTTP_VERSION
-#define HTTP VERSION 1.1
+#define HTTP VERSION "HTTP/1.1" 
 #endif
 
 enum http_codes {
