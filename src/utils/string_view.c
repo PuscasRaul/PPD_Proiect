@@ -8,7 +8,7 @@ string_view *init_str_view(
   if (str_v == NULL)
     return NULL;
 
-  str_v->buffer = (char*) buffer;
+  str_v->buffer = buffer;
   str_v->len = len;
 
   return str_v;

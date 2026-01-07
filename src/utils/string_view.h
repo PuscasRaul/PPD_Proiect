@@ -2,11 +2,11 @@
 #define UTILS_STRING_VIEW_H
 
 #include <stddef.h>
-#include "my_string.h"
+#include <stdlib.h>
 
 typedef struct string_view string_view;
 struct string_view {
-  char *buffer;
+  const char *buffer;
   size_t len;
 };
 
@@ -55,5 +55,4 @@ static inline void free_str_view(string_view *str_v) {
     free(str_v);
   }
 }
-
 #endif
