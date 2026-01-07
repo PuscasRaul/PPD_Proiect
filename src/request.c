@@ -72,6 +72,7 @@ int http_extract_req_line(
     return -1;
 
   offset = status_line - data; /* This should start on CR */
+
   string_ncpy(&req->raw_data, data, offset); 
   delimiter = i;
   while (data[delimiter] != ' ')

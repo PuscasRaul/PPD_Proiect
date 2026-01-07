@@ -72,4 +72,13 @@ static inline void free_http_server(http_server *server) {
   }
 }
 
+int server_add_uri_handler(const char *uri, );
+
+/*
+ * Starts server so it can accept and handle different requests.
+ * NOTE: safe to call with NULL ptr
+ *
+ */
+int server_start(http_server *server);
+
 #endif // HTTP_SERVER_H
