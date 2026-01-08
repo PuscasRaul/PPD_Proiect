@@ -19,6 +19,7 @@ struct con_adr {
 struct con {
   int fd;
   con_adr loc; /* Local address */
+  unsigned is_listening: 1; /* Connection listening on port */
   unsigned is_reading : 1; /* Consuming received data */
   unsigned is_draining : 1; /* Send remaining data then close and free immediately */
   unsigned is_closing : 1; /* Close and free the connection immediately */

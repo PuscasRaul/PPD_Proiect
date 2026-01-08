@@ -3,6 +3,9 @@
 #include "request.h"
 #include "logger.h"
 
+#include <stdint.h>
+
+
 typedef struct {
   const char *name;
     enum http_methods method;
@@ -19,31 +22,40 @@ static const http_method_map method_table[] = {
     {"CONNECT", CONNECT}
 };
 
-static enum http_methods string_to_enum(const char *str) {
-    size_t num_methods = sizeof(method_table) / sizeof(method_table[0]);
-    for (size_t i = 0; i < num_methods; i++) {
-        if (strcmp(str, method_table[i].name) == 0) {
-            return method_table[i].method;
-        }
+static http_methods string_to_enum_n(const char *data, size_t len) {
+    if (len < 3) return UNRECOGNIZED;
+
+    // We can interpret the first 4 bytes as a 32-bit integer.
+    // Note: This works best on Little Endian (x86/ARM).
+    // Using a simple switch on length + first characters:
+    switch (len) {
+        case 3:
+            if (data[0] == 'G' && data[1] == 'E' && data[2] == 'T') 
+                return GET;
+            break;
+        case 4:
+            if (*(uint32_t*)data == *(uint32_t*)"POST") return POST;
+            break;
+        case 6:
+            if (memcmp(data, "DELETE", 6) == 0) return DELETE;
+            break;
+        // Add other methods as needed
     }
+
     return UNRECOGNIZED;
 }
+
 
 http_request *init_http_request(http_request *req) {
   if (req == NULL)
     return NULL;
 
-  if (init_string(&req->raw_data, INIT_HTTP_REQ_SIZE) == NULL)
-    return NULL;
-
   req->headers_amt = 0;
-
   return req;
 }
 
 void deinit_http_request(http_request *req) {
   if (req != NULL) {
-    deinit_string(&req->raw_data);
     deinit_str_view(&req->body);
     deinit_str_view(&req->status_line);
     deinit_str_view(&req->uri);
@@ -51,58 +63,42 @@ void deinit_http_request(http_request *req) {
   }
 }
 
-int http_extract_req_line(
-    const char *data,
-    const size_t len,
-    http_request *req
-    ) {
+int http_extract_req_line(const char *data, size_t len, http_request *req) {
+    if (!data || !req) return -1;
 
-  char *status_line = NULL;
-  int offset = 0, i = 0, delimiter = 0;
-  char tmp_buffer[512];
-  if (data == NULL || req == NULL)
-    return -1;
+    // 1. Find the boundary of the Request Line
+    const char *line_end = memmem(data, len, "\r\n", 2);
+    if (!line_end) return NEED_MORE_DATA;
 
-  /* 
-   * STATUS LINE format is:
-   * METHOD SP URI SP HTTP_VERSION CRLF
-   */
-  status_line = memmem(data, len, "\r\n", 2);
-  if (status_line == NULL) /* Not enough data in buffer yet */
-    return -1;
+    size_t line_len = line_end - data;
+    init_str_view(&req->status_line, data, line_len);
 
-  offset = status_line - data; /* This should start on CR */
+    const char *cur = data;
+    const char *end = line_end;
 
-  string_ncpy(&req->raw_data, data, offset); 
-  delimiter = i;
-  while (data[delimiter] != ' ')
-    delimiter++;
+    // 2. Extract Method
+    const char *sp1 = memchr(cur, ' ', end - cur);
+    if (!sp1) return -1; // Malformed: No SP after method
+    
+    // Instead of memcpy, pass pointer and length to your enum converter
+    req->method = string_to_enum_n(cur, sp1 - cur); 
+    
+    cur = sp1;
+    while (cur < end && *cur == ' ') cur++; // Skip spaces
 
-  memcpy(tmp_buffer, data, delimiter - i);
-  tmp_buffer[delimiter - i] = '\0';
-  req->method = string_to_enum(tmp_buffer); 
-  
-  delimiter++;
-  i = delimiter;
-  while (data[delimiter] != ' ')
-    delimiter++;
+    // 3. Extract URI
+    const char *sp2 = memchr(cur, ' ', end - cur);
+    if (!sp2) return -1; // Malformed: No SP after URI
+    
+    init_str_view(&req->uri, cur, sp2 - cur);
+    
+    cur = sp2;
+    while (cur < end && *cur == ' ') cur++; // Skip spaces
 
-  init_str_view(
-      &req->uri,
-      req->raw_data.buffer + i,
-      delimiter - i);
+    // 4. Extract Version
+    init_str_view(&req->http_version, cur, end - cur);
 
-  memcpy(tmp_buffer, req->raw_data.buffer + i, req->uri.len);
-  tmp_buffer[req->uri.len] = '\0';
-
-  delimiter++;
-  init_str_view(
-      &req->http_version,
-      req->raw_data.buffer + delimiter,
-      offset - delimiter
-      );
-
-  return 0;
+    return (int) line_len; 
 }
 
 int http_extract_headers(
@@ -110,63 +106,57 @@ int http_extract_headers(
     const size_t len,
     http_request *req
     ) {
+    if (data == NULL || req == NULL) return -1;
 
-  if (req == NULL || data == NULL)
-    return -1;
+    // 1. Find the final boundary of the header section
+    const char *header_end = memmem(data, len, "\r\n\r\n", 4);
+    if (header_end == NULL) return NEED_MORE_DATA;
 
-  char *header_line = NULL;
-  int offset = 0, i = 0;
-  int header_delimiter = 0, name_delimiter = 0;
-  size_t status_line_len = req->raw_data.len;
-  header_line = memmem(data, len, "\r\n\r\n", 4);
-  if (header_line == NULL)
-    return -1; /* Not enough data yet probably */
+    const char *cur = data;
+    const char *line_end;
 
-  /*
-   * Header format is :
-   * HEADER_NAME:  (SP)*  HEADER_VALUE CRLF
-   *
-   * One approach is, extract via CRLF all of the different header_line
-   * For each header line
-   * iterate up to ":", and then take separately the name and value
-   */
+    // 2. Iterate line by line until we reach the double CRLF
+    while (cur < header_end) {
+        line_end = memmem(cur, header_end - cur, "\r\n", 2);
+        if (line_end == NULL) break; 
 
-  offset = header_line - data;
-  if (string_ncat(&req->raw_data, data, offset) != 0)
-    return -1; /* Could not append headers to existing status-line */
+        // Safety: Prevent array overflow
+        if (req->headers_amt >= MAX_HTTP_HEADERS) {
+            log_error("Too many headers in request");
+            return -1; 
+        }
 
-  while (i < offset) {
-    /* advance untill we find a CRLF */
-    header_delimiter = i;
-    while (
-        data[header_delimiter] != '\r' 
-        && data[header_delimiter + 1] != '\n'
-        && header_delimiter <= offset)
-      ++header_delimiter;
+        const char *sep = memchr(cur, ':', line_end - cur);
+        if (sep == NULL) {
+            // This handles the empty line or malformed headers
+            cur = line_end + 2;
+            continue;
+        }
 
-    name_delimiter = i;
-    while (data[name_delimiter] != ':')
-      ++name_delimiter;
+        // Initialize Name View
+        init_str_view(
+            &req->header_tab[req->headers_amt].name,
+            cur,
+            sep - cur
+            );
 
-    /* the upper bound of the value is the header delimiter itself */
-    init_str_view(
-        &req->header_tab[req->headers_amt].name,
-        req->raw_data.buffer + status_line_len, 
-        name_delimiter
-        );
+        // Move past ':' and trim leading spaces for the value
+        sep++; 
+        while (sep < line_end && *sep == ' ') sep++;
 
-    ++name_delimiter;
-    init_str_view(
-        &req->header_tab[req->headers_amt].value,
-        req->raw_data.buffer + status_line_len + name_delimiter,
-        header_delimiter - name_delimiter 
-        );
+        // Initialize Value View
+        init_str_view(
+            &req->header_tab[req->headers_amt].value,
+            sep,
+            line_end - sep
+            );
 
-    ++req->headers_amt;
-    i = header_delimiter + 2; /* move i past CRLF */ 
-  }
+        req->headers_amt++;
+        cur = line_end + 2; // Move to the start of the next line
+    }
 
-  return 0;
+    // Return total bytes consumed (headers + the \r\n\r\n)
+    return (int)(header_end - data + 4);
 }
 
 int http_extract_body(
@@ -184,11 +174,7 @@ int http_extract_body(
     return -1; /* No existing CRLF to top off body */
 
   offset = body - data;
-  int header_len = req->raw_data.len;
-  if (string_ncat(&req->raw_data, data, len) != 0)
-    return -1; /* Can not append body to data */
-
-  init_str_view(&req->body, req->raw_data.buffer + header_len, offset);
+  init_str_view(&req->body, data, offset);
   return 0;
 }
 

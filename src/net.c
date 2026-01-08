@@ -8,6 +8,7 @@ con *init_connection(con *connection, int fd) {
 
   *connection = (con) {
     .fd = fd,
+    .is_listening = 0,
     .is_closing = 0,
     .is_draining = 0,
     .is_reading = 0,
@@ -43,7 +44,12 @@ int con_listen(con *connection, int backlog) {
   if (connection == NULL)
     return -1;
 
-  return listen(connection->fd, backlog);
+  if (listen(connection->fd, backlog) == 0) {
+    connection->is_listening = 1;
+    return 0;
+  }
+
+  return -1;
 }
 
 int con_close(con *connection) {
@@ -79,6 +85,12 @@ void con_set_addr_structure(
 }
 
 con *con_accept(con *connection) {
+  if (connection == NULL)
+    return NULL;
+
+  if (connection->is_listening == 0)
+    return NULL;
+
   int client_fd;
   struct sockaddr_in cli_addr;
   socklen_t cli_len = sizeof(cli_addr);

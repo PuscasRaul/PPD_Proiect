@@ -14,6 +14,9 @@
 #define INIT_HTTP_REQ_SIZE 4096
 #endif
 
+#define NEED_MORE_DATA 1
+#define MALFORMED_REQUEST -1
+
 typedef struct http_header http_header;
 typedef struct http_request http_request;
 
@@ -23,8 +26,6 @@ struct http_header {
 };
 
 struct http_request {
-  string_t raw_data; /* Raw request data */
-
   string_view uri; /* Destination uri, view over raw_data */
   string_view status_line; /* Status_line of request, view over raw_data */
   string_view body; /* Body of request, view over raw_data */
