@@ -1,15 +1,5 @@
 #define _POSIX_C_SOURCE 200112L 
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdlib.h>
-
 #include "src/logger.h"
 #include "src/server.h"
 

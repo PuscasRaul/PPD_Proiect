@@ -93,6 +93,8 @@ con *con_accept(con *connection) {
     return NULL;
 
   con *client = new_connection(client_fd);
+  if (client == NULL)
+    return NULL;
   con_set_port(client, connection->loc.port);
   con_set_addr_structure(client, &cli_addr);
   return client;

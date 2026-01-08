@@ -57,15 +57,14 @@ void deinit_http_server(http_server *server) {
 void handle_client(void *arg) {
   con *conn = (con*) arg;
   log_info("Handling client with fd: [%d]", conn->fd);
-  char *response = malloc(256);
-  response = "HTTP/1.0 200 OK \r\n"
-    "\r\n"
-    "Hello world\n";
-  write(conn->fd, response, 32);
-  close(conn->fd);
+  string_cpy(
+      &conn->outgoing,
+      "HTTP/1.0 200 OK \r\n \r\nHello world\n"
+      );
 
+  write(conn->fd, conn->outgoing.buffer, conn->outgoing.len);
   log_info("Successfully responded to client");
-  free(conn);
+  free_connection(conn);
 }
 
 void server_start(http_server *server) {
