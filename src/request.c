@@ -182,7 +182,6 @@ int lookup_header_value(
     const char *header_name,
     string_view *value
     ) {
-  
   /*
    * FIX: this will fail for any malicious client sending '\0' 
    * in req_line and headers

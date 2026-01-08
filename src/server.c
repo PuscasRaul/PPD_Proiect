@@ -56,7 +56,6 @@ void deinit_http_server(http_server *server) {
   }
 }
 
-
 void handle_client(void *arg) {
     con *conn = (con*) arg;
     http_request req;
@@ -140,6 +139,12 @@ void handle_client(void *arg) {
             &req
             );
     }
+    char tmp_buffer[256];
+    memcpy(tmp_buffer, req.uri.buffer, req.uri.len);
+    tmp_buffer[req.uri.len] = '\0';
+    log_info("Accepted request, method: [%d], uri:[%s]", 
+        req.method,
+        tmp_buffer);
 
     string_cpy(
         &conn->outgoing,
