@@ -57,4 +57,11 @@ int http_extract_body(
     const size_t len,
     http_request *req
     );
+
+int lookup_header_value(
+    const char *data, 
+    int data_size,
+    const char *header_name,
+    string_view *value
+    );
 #endif // HTTP_REQUEST_H

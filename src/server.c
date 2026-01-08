@@ -1,10 +1,11 @@
-#define _POSIX_C_SOURCE 200112L 
-
+#define _GNU_SOURCE
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <string.h>
 
 #include "server.h"
 #include "logger.h"
+#include "request.h"
 
 http_server *init_http_server(
     http_server *server,
@@ -56,6 +57,70 @@ void deinit_http_server(http_server *server) {
 
 void handle_client(void *arg) {
   con *conn = (con*) arg;
+  int status = 0;
+  http_request req;
+
+  /* read untill all of the headers have arrived */
+  char *header_end = memmem(
+      conn->incoming.buffer,
+      conn->incoming.len,
+      "\r\n\r\n",
+      4);
+
+  while (header_end != NULL) {
+    status = read(
+        conn->fd,
+        conn->incoming.buffer,
+        conn->incoming.capacity - conn->incoming.len
+        );
+
+    if (status < 0) {
+      log_error("Could not read from fd, closing");
+      free_connection(conn);
+      return;
+    }
+
+    header_end = memmem(
+        conn->incoming.buffer,
+        conn->incoming.len,
+        "\r\n\r\n",
+        4);
+
+  }
+
+  /* lookup for body-length header */
+
+  init_http_request(&req);
+  status = http_extract_req_line(
+      conn->incoming.buffer,
+      conn->incoming.len,
+      &req
+      );
+
+  if (status < 0) {
+    log_error("Malformed http request line, closing connection");
+    free_connection(conn);
+    deinit_http_request(&req);
+  }
+
+  status = http_extract_headers(
+      conn->incoming.buffer + status,
+      conn->incoming.len - status, 
+      &req);
+
+  if (status < 0) {
+    log_error("Malformed headers, closing");
+    free_connection(conn);
+    deinit_http_request(&req);
+    return;
+  } 
+
+  status = http_extract_body(
+      header_end + 4,
+      conn->incoming.len - (header_end - conn->incoming.buffer + 4),
+      &req
+      );
+
   log_info("Handling client with fd: [%d]", conn->fd);
   string_cpy(
       &conn->outgoing,

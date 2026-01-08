@@ -169,12 +169,41 @@ int http_extract_body(
     return -1;
 
   char *body = memmem(data, len, "\r\n", 2);
-  int offset = 0;
   if (body == NULL)
     return -1; /* No existing CRLF to top off body */
 
-  offset = body - data;
-  init_str_view(&req->body, data, offset);
+  init_str_view(&req->body, data, body - data);
+  return 0;
+}
+
+int lookup_header_value(
+    const char *data,
+    int data_size,
+    const char *header_name,
+    string_view *value
+    ) {
+  
+  /*
+   * FIX: this will fail for any malitious client sending '\0' 
+   * in req_line and headers
+   *
+   * But they're malicious so fuck off
+   */
+  char *delim = strcasestr(data, header_name);
+  if (delim == NULL) 
+    return -1; 
+
+  /* find the beggining of the header value */
+  char *separator = memchr(delim, ':', data_size - (delim - data));
+  if (separator == NULL)
+    return -1;
+
+  ++separator;
+  /* find start of CRLF */
+  delim = memchr(separator, '\r', data_size - (separator - data));
+  if (delim == NULL)
+    return -1;
+  init_str_view(value, separator, delim - separator);
   return 0;
 }
 
