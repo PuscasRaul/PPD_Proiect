@@ -1,46 +1,23 @@
 CC = gcc
-CFLAGS = -g -Wall -Iinclude -Isrc  # Added -I so you don't need ../ in includes
-OUT = bin
-SRC_DIR = src
-UTILS_DIR = src/utils
-HTTP_DIR = src/http
-TEST_DIR = src/tests
+CFLAGS = -W -Wall -Wextra -g -Isrc -I. 
+LDFLAGS = -pthread 
 
-# 1. Automatically find all source files in subdirectories
-SRCS = $(wildcard $(UTILS_DIR)/*.c) $(wildcard $(HTTP_DIR)/*.c)
-# 2. Convert source paths to object paths in the bin directory
-OBJS = $(patsubst %.c, $(OUT)/%.o, $(notdir $(SRCS)))
+SOURCES = src/net.c src/server.c src/request.c src/logger.c \
+          src/string_view.c src/hmap.c src/my_string.c src/thpool.c 
 
-# Targets
-.PHONY: all clean run_tests
+OBJECTS = $(SOURCES:.c=.o)
 
-all: $(OUT)/main
+PROG = main
 
-# Pattern Rule: How to turn any .c file into a .o file in the bin directory
-# % is a wildcard, $< is the source file, $@ is the target
-$(OUT)/%.o: $(UTILS_DIR)/%.c | $(OUT)
+.PHONY: all clean
+
+all: $(PROG)
+
+$(PROG): main.o $(OBJECTS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OUT)/%.o: $(HTTP_DIR)/%.c | $(OUT)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Build Main
-$(OUT)/main: $(SRC_DIR)/main.c $(OBJS) | $(OUT)
-	$(CC) $(CFLAGS) $^ -o $@
-
-# Build and Run Tests
-run_tests: $(OUT)/string_tests $(OUT)/req_tests
-	./$(OUT)/string_tests
-	./$(OUT)/req_tests
-
-$(OUT)/string_tests: $(TEST_DIR)/my_string_test.c $(OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
-
-$(OUT)/req_tests: $(TEST_DIR)/http_request_test.c $(OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
-
-$(OUT):
-	mkdir -p $(OUT)
 
 clean:
-	rm -rf $(OUT)
+	rm -f $(OBJECTS) main.o $(PROG)

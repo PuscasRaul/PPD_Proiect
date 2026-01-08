@@ -1,5 +1,5 @@
-#ifndef UTILS_NET_H
-#define UTILS_NET_H
+#ifndef NET_H
+#define NET_H
 
 #include "my_string.h"
 #include <stdlib.h>
@@ -8,11 +8,12 @@
 
 typedef struct con con;
 typedef struct con_adr con_adr;
+typedef void (*ev_handler)(con *);
 
 struct con_adr {
   uint16_t port; 
   char ip_str[INET6_ADDRSTRLEN];
-  struct addrinfo *info;
+  struct sockaddr_in addr;
 };
 
 struct con {
@@ -45,5 +46,12 @@ static inline void free_connection(con *connection) {
   }
 }
 
+void con_set_port(con *connection, uint16_t port);
+void con_set_addr(con *connection, uint32_t address);
+void con_set_addr_structure(con *connection, struct sockaddr_in *addr);
+
+int con_bind(con *connection);
+int con_listen(con *connection, int backlog);
 int con_close(con *connection);
-#endif // UTILS_NET_H
+con *con_accept(con *connection);
+#endif // NET_H

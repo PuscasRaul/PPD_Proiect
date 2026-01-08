@@ -1,8 +1,8 @@
-#ifndef HTTP_REQUEST_H
-#define HTTP_REQUEST_H
+#ifndef REQUEST_H
+#define REQUEST_H
 
-#include "../utils/my_string.h"
-#include "../utils/string_view.h"
+#include "my_string.h"
+#include "string_view.h"
 #include "core.h"
 
 #ifndef MAX_HTTP_HEADERS

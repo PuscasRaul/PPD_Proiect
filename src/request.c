@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include <string.h>
 #include "request.h"
-#include "../utils/logger.h"
+#include "logger.h"
 
 typedef struct {
   const char *name;

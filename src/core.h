@@ -1,5 +1,5 @@
-#ifndef HTTP_CORE_H
-#define HTTP_CORE_H
+#ifndef CORE_H
+#define CORE_H
 
 typedef enum http_codes http_codes;
 typedef enum http_methods http_methods;
@@ -25,4 +25,4 @@ enum http_methods {
   UNRECOGNIZED
 };
 
-#endif // HTTP_CORE_H
+#endif // CORE_H

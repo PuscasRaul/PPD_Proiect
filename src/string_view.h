@@ -1,5 +1,5 @@
-#ifndef UTILS_STRING_VIEW_H
-#define UTILS_STRING_VIEW_H
+#ifndef STRING_VIEW_H
+#define STRING_VIEW_H
 
 #include <stddef.h>
 #include <stdlib.h>

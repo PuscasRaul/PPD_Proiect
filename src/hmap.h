@@ -1,5 +1,5 @@
-#ifndef UTILS_HMAP_H
-#define UTILS_HMAP_H
+#ifndef HMAP_H
+#define HMAP_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -75,4 +75,4 @@ hnode **h_lookup(
  */
 hnode *h_delete(htab *htab, hnode *key, int (*eq)(hnode*, hnode*)); 
 
-#endif // UTILS_HMAP_H
+#endif // HMAP_H

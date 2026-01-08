@@ -1,5 +1,5 @@
-#ifndef UTILS_THPOOL_H
-#define UTILS_THPOOL_H
+#ifndef THPOOL_H
+#define THPOOL_H
 
 #include <pthread.h>
 typedef struct job job;
@@ -104,4 +104,4 @@ void thpool_addwork(
  * param: thpool: the thread pool
  */
 void thpool_poison_pill(thpool *thpool); 
-#endif // UTILS_THPOOL_H
+#endif // THPOOL_H

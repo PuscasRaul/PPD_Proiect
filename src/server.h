@@ -1,20 +1,19 @@
-#ifndef HTTP_SERVER_H
-#define HTTP_SERVER_H
+#ifndef SERVER_H
+#define SERVER_H
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <stdlib.h>
 
-#include "../utils/thpool.h"
+#include "thpool.h"
+#include "net.h"
 
 typedef struct http_server http_server;
+
 struct http_server {
-  int socket_fd; 
-  struct addrinfo *serv_info;
-  thpool thpool;
-  char port[6];
-  char ip_str[INET6_ADDRSTRLEN];
+  con connection;
+  thpool thr_pool;
   int backlog;
 };
 
@@ -22,6 +21,7 @@ struct http_server {
  * Initializes the server: creates, bind and listens
  * param: server: the server to be initialized
  * param: port: port to bind to
+ * param: addr: address to bind to
  * param: thr_count: number of threads for request processing
  * backlog: maximum number of pending connections                  
  * return: NULL on failure
@@ -30,7 +30,8 @@ struct http_server {
  */
 http_server *init_http_server(
     http_server *server,
-    char *port,
+    uint16_t port,
+    uint32_t addr,
     int thr_count,
     int backlog
     );
@@ -49,13 +50,15 @@ void deinit_http_server(http_server *server);
  * free_http_server
  */
 static inline http_server *new_http_server(
-    char *port,
+    uint16_t port,
+    uint32_t addr,
     int thr_count,
     int backlog
     ) {
   return init_http_server(
       malloc(sizeof(http_server)),
       port, 
+      addr,
       thr_count,
       backlog
       );
@@ -72,13 +75,14 @@ static inline void free_http_server(http_server *server) {
   }
 }
 
-int server_add_uri_handler(const char *uri, );
+int server_add_uri_handler(const char *uri);
 
 /*
  * Starts server so it can accept and handle different requests.
  * NOTE: safe to call with NULL ptr
  *
  */
-int server_start(http_server *server);
+void server_start(http_server *server);
 
-#endif // HTTP_SERVER_H
+
+#endif // SERVER_H

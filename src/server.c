@@ -1,93 +1,80 @@
 #define _POSIX_C_SOURCE 200112L 
 
-#include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 
 #include "server.h"
-#include "../utils/logger.h"
+#include "logger.h"
 
 http_server *init_http_server(
     http_server *server,
-    char *port,
+    uint16_t port,
+    uint32_t addr,
     int thr_count,
     int backlog
     ) {
+
   if (server == NULL)
     return NULL;
 
-  if (strlen(port) >= 6) {
-    log_error("Invalid number for port.");
+  if (init_connection(
+        &server->connection,
+        socket(AF_INET, SOCK_STREAM, 0)) == NULL) {
+    log_debug("Could not initialize connection on new socket");
     return NULL;
   }
 
-  int status = 0;
-  struct addrinfo hints = {0}, *p;
-  memset(&hints, 0, sizeof(struct sockaddr));
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_flags = AI_PASSIVE;
-
-  status = getaddrinfo(NULL, port, &hints, &server->serv_info);
-  if (status != 0) {
-    log_debug("Could not get address info");
+  con_set_port(&server->connection, htons(port));
+  con_set_addr(&server->connection, htonl(addr));
+  if (con_bind(&server->connection) != 0) {
+    log_debug("Could not bind connection to port: [%d]", port);
+    deinit_connection(&server->connection);
     return NULL;
   }
 
-  for (p = server->serv_info; p != NULL; p = p->ai_next) {
-    server->socket_fd = socket(
-        p->ai_family,
-        p->ai_socktype,
-        p->ai_protocol
-        );
-    if (server->socket_fd < 0)
-      continue;
-
-    status = bind(
-        server->socket_fd,
-        p->ai_addr,
-        p->ai_addrlen
-        );
-    if (status < 0) {
-      log_debug("Could not bind server to port: [%s]", port);
-      goto cleanup;
-    }
-    
-    status = listen(server->socket_fd, backlog);
-    if (status < 0) {
-      log_debug("Could not listen on socket, closing up server");
-      goto cleanup;
-    }
-
-    /* fill in the server data */
-    server->backlog = backlog;
-    if (init_thpool(&server->thpool, thr_count) == NULL) {
-      log_debug("Could not initialize thread pool");
-      goto cleanup;
-    }
-
-    inet_pton(
-        server->serv_info->ai_family,
-        server->serv_info->ai_addr->sa_data,
-        server->ip_str
-        );
-    memcpy(server->port, port, strlen(port));
-    server->port[strlen(port)] = '\0';
-    return server;
+  if (con_listen(&server->connection, backlog) != 0) {
+    log_debug("Could not listen on connection");
+    deinit_connection(&server->connection);
+    return NULL;
   }
 
-cleanup:
-  close(server->socket_fd);
-  freeaddrinfo(server->serv_info);
-  return NULL;
+  if (init_thpool(&server->thr_pool, thr_count) == NULL) {
+    log_debug("Could not initialize thread pool");
+    deinit_connection(&server->connection);
+    return NULL;
+  }
+
+  return server;
 }
 
 void deinit_http_server(http_server *server) {
   if (server) {
-    deinit_thpool(&server->thpool);
-    freeaddrinfo(server->serv_info);
-    close(server->socket_fd);
-    server->backlog = 0;
+    deinit_connection(&server->connection);
+    deinit_thpool(&server->thr_pool);
+  }
+}
+
+void handle_client(void *arg) {
+  con *conn = (con*) arg;
+  log_info("Handling client with fd: [%d]", conn->fd);
+  char *response = malloc(256);
+  response = "HTTP/1.0 200 OK \r\n"
+    "\r\n"
+    "Hello world\n";
+  write(conn->fd, response, 32);
+  close(conn->fd);
+
+  log_info("Successfully responded to client");
+  free(conn);
+}
+
+void server_start(http_server *server) {
+  thpool_run(&server->thr_pool);
+  log_info("Server is now ready to accept client");
+  while (1) {
+    con *client = con_accept(&server->connection);
+    log_info("Accepted client with fd: [%d]", client->fd);
+    thpool_addwork(&server->thr_pool, handle_client, client);
   }
 }
 

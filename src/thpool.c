@@ -1,5 +1,7 @@
 #include "thpool.h"
 #include <stdlib.h>
+#include "logger.h"
+
 /*
  * Initializes a counting semaphore
  * :param csem: the semaphore
@@ -205,8 +207,6 @@ job *jb_queue_pop(job_queue *jb_queue) {
   return jb;
 }
 
-
-
 thpool *new_thpool(int thrd_count) {
   return init_thpool(malloc(sizeof(thpool)), thrd_count);
 }
@@ -236,6 +236,8 @@ thpool *init_thpool(thpool *thpool, int thrd_count) {
     return NULL;
   }
 
+  log_info("thpool initialized with: [%d] threads", thrd_count);
+
   return thpool;
 }
 
@@ -249,7 +251,7 @@ void deinit_thpool(thpool *thpool) {
 }
 
 static void thr_func(void *args) {
-  job_queue *jb_queue = (job_queue*) args; /* Cast it to the job queue */
+  job_queue *jb_queue = (job_queue*) args; 
 
   while (1) {
     job *jb = jb_queue_pop(jb_queue); 
@@ -268,6 +270,7 @@ void thpool_run(thpool *thpool) {
   if (thpool == NULL || thpool->threads == NULL)
     return;
 
+  log_info("Thread pool is currently running");
   for (register int i = 0; i < thpool->threads_count; i++)
     pthread_create(
         &thpool->threads[i],
@@ -300,8 +303,10 @@ void thpool_addwork(
   
   job *jb = new_job(func, args);
   if (jb == NULL) {
+    log_error("Failed creating a new job");
     return;
   }
 
   jb_queue_push(&thpool->jobs, jb);
+  log_info("Successfully pushed a new job");
 }
