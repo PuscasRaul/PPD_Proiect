@@ -184,7 +184,7 @@ int lookup_header_value(
     ) {
   
   /*
-   * FIX: this will fail for any malitious client sending '\0' 
+   * FIX: this will fail for any malicious client sending '\0' 
    * in req_line and headers
    *
    * But they're malicious so fuck off

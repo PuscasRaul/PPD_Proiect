@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <limits.h>
 
 #include "server.h"
 #include "logger.h"
@@ -55,81 +56,100 @@ void deinit_http_server(http_server *server) {
   }
 }
 
+
 void handle_client(void *arg) {
-  con *conn = (con*) arg;
-  int status = 0;
-  http_request req;
+    con *conn = (con*) arg;
+    http_request req;
+    init_http_request(&req);
 
-  /* read untill all of the headers have arrived */
-  char *header_end = memmem(
-      conn->incoming.buffer,
-      conn->incoming.len,
-      "\r\n\r\n",
-      4);
-
-  while (header_end != NULL) {
-    status = read(
-        conn->fd,
-        conn->incoming.buffer,
-        conn->incoming.capacity - conn->incoming.len
-        );
-
-    if (status < 0) {
-      log_error("Could not read from fd, closing");
-      free_connection(conn);
-      return;
-    }
-
+    // 1. READ HEADERS LOOP
+    char *header_end = NULL;
     header_end = memmem(
         conn->incoming.buffer,
         conn->incoming.len,
         "\r\n\r\n",
         4);
+    while (header_end == NULL) {
+        size_t space_left = conn->incoming.capacity - conn->incoming.len;
+        if (space_left < 128) { 
+            string_resize(&conn->incoming, conn->incoming.capacity * 2);
+            space_left = conn->incoming.capacity - conn->incoming.len;
+        }
 
-  }
+        ssize_t b = read(
+            conn->fd,
+            conn->incoming.buffer + conn->incoming.len,
+            space_left
+            );
 
-  /* lookup for body-length header */
+        if (b <= 0) {
+            log_error("Connection closed or read error while waiting for headers");
+            goto cleanup;
+        }
+        conn->incoming.len += b;
+        header_end = memmem(
+            conn->incoming.buffer,
+            conn->incoming.len,
+            "\r\n\r\n",
+            4);
+    }
 
-  init_http_request(&req);
-  status = http_extract_req_line(
-      conn->incoming.buffer,
-      conn->incoming.len,
-      &req
-      );
+    size_t header_bytes = (header_end - conn->incoming.buffer) + 4;
+    string_view cl_view;
+    if (lookup_header_value(
+          conn->incoming.buffer,
+          header_bytes,
+          "Content-Length",
+          &cl_view) == 0) {
+        
+        long content_length = 0;
+        for (size_t i = 0; i < cl_view.len; i++) {
+            if (cl_view.buffer[i] >= '0' && cl_view.buffer[i] <= '9')
+                content_length = content_length * 10 + 
+                                 (cl_view.buffer[i] - '0');
+        }
 
-  if (status < 0) {
-    log_error("Malformed http request line, closing connection");
-    free_connection(conn);
+        size_t total_expected = header_bytes + content_length;
+        if (conn->incoming.capacity < total_expected) 
+            string_resize(&conn->incoming, total_expected + 1);
+
+        while (conn->incoming.len < total_expected) {
+            ssize_t b = read(conn->fd, 
+                             conn->incoming.buffer + conn->incoming.len, 
+                             total_expected - conn->incoming.len);
+            if (b <= 0) break;
+            conn->incoming.len += b;
+        }
+        init_str_view(
+            &req.body,
+            conn->incoming.buffer + header_bytes,
+            content_length
+            );
+    }
+
+    int line_offset = http_extract_req_line(
+        conn->incoming.buffer,
+        header_bytes,
+        &req
+        );
+
+    if (line_offset > 0) {
+        http_extract_headers(
+            conn->incoming.buffer + line_offset + 2,
+            header_bytes - (line_offset + 2),
+            &req
+            );
+    }
+
+    string_cpy(
+        &conn->outgoing,
+        "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nHello world\n"
+        );
+    write(conn->fd, conn->outgoing.buffer, conn->outgoing.len);
+
+cleanup:
     deinit_http_request(&req);
-  }
-
-  status = http_extract_headers(
-      conn->incoming.buffer + status,
-      conn->incoming.len - status, 
-      &req);
-
-  if (status < 0) {
-    log_error("Malformed headers, closing");
     free_connection(conn);
-    deinit_http_request(&req);
-    return;
-  } 
-
-  status = http_extract_body(
-      header_end + 4,
-      conn->incoming.len - (header_end - conn->incoming.buffer + 4),
-      &req
-      );
-
-  log_info("Handling client with fd: [%d]", conn->fd);
-  string_cpy(
-      &conn->outgoing,
-      "HTTP/1.0 200 OK \r\n \r\nHello world\n"
-      );
-
-  write(conn->fd, conn->outgoing.buffer, conn->outgoing.len);
-  log_info("Successfully responded to client");
-  free_connection(conn);
 }
 
 void server_start(http_server *server) {
@@ -141,5 +161,3 @@ void server_start(http_server *server) {
     thpool_addwork(&server->thr_pool, handle_client, client);
   }
 }
-
-
